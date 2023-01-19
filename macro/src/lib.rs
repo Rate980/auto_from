@@ -22,6 +22,32 @@ impl Parse for EnumFilled {
         Ok(Self(type_, ident))
     }
 }
+
+#[derive(Debug, Clone)]
+struct UnionEnum {
+    ident: Ident,
+    generics: Option<Generics>,
+    body: Punctuated<EnumFilled, Token!(,)>,
+}
+
+impl Parse for UnionEnum {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        let ident = input.parse::<Ident>()?;
+        let generics = if input.peek(Token!(<)) {
+            Some(input.parse::<Generics>()?)
+        } else {
+            None
+        };
+        input.parse::<Token!(;)>()?;
+        let body = Punctuated::<EnumFilled, Token![,]>::parse_terminated(input)?;
+        Ok(Self {
+            ident,
+            generics,
+            body,
+        })
+    }
+}
+
 #[proc_macro_derive(From)]
 pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match entry(input) {
@@ -64,27 +90,43 @@ pub fn union_enum(input: TokenStream) -> TokenStream {
 }
 
 fn enum_entry(input: TokenStream) -> Result<TokenStream2> {
-    let trees: Vec<_> = input.into_iter().collect();
-    let name = syn::parse::<Ident>(trees[0].clone().into())?;
-    match &trees[1] {
-        TokenTree::Punct(x) => {
-            if x.as_char() != ';' {
-                syn_err!(x.span().into(); "need ;")
-            }
-        }
-        x => syn_err!(x.span().into(); "need ;"),
-    }
-    let args = TokenStream::from_iter(trees[2..].into_iter().map(|x| x.clone()));
-    let parser = Punctuated::<EnumFilled, Token![,]>::parse_terminated;
-    let fields = parser.parse(args)?;
+    // let trees: Vec<_> = input.into_iter().collect();
+    // let name = syn::parse::<Ident>(trees[0].clone().into())?;
+    // match &trees[1] {
+    //     TokenTree::Punct(x) => {
+    //         if x.as_char() != ';' {
+    //             syn_err!(x.span().into(); "need ;")
+    //         }
+    //     }
+    //     x => syn_err!(x.span().into(); "need ;"),
+    // }
+    // let args = TokenStream::from_iter(trees[2..].into_iter().map(|x| x.clone()));
+    // let parser = Punctuated::<EnumFilled, Token![,]>::parse_terminated;
+    // let fields = parser.parse(args)?;
+    // let types = fields.iter().map(|x| x.0.clone()).collect::<Vec<Type>>();
+    // let names = fields.iter().map(|x| x.1.clone()).collect::<Vec<Ident>>();
+    let ast = syn::parse::<UnionEnum>(input)?;
+    let name = &ast.ident;
+    let fields = &ast.body;
     let types = fields.iter().map(|x| x.0.clone()).collect::<Vec<Type>>();
     let names = fields.iter().map(|x| x.1.clone()).collect::<Vec<Ident>>();
+    let generics = &ast.generics;
+    let for_generics = if let Some(generics) = generics {
+        let mut generics = generics.clone();
+        let emp = Punctuated::<TypeParamBound, Token!(+)>::new;
+        generics
+            .type_params_mut()
+            .for_each(move |x| x.bounds = emp());
+        Some(generics)
+    } else {
+        None
+    };
     let res = quote!(
-        enum #name{
+        enum #name #generics{
             #(#names(#types)),*
         }
         #(
-            impl From<#types> for #name{
+            impl #generics From<#types> for #name #for_generics{
                 fn from(value: #types) -> Self{
                     Self::#names(value)
                 }
@@ -109,6 +151,7 @@ fn to_enum_ident(t: &Type) -> Result<Ident> {
         | Type::ImplTrait(_)
         | Type::TraitObject(_)
         | Type::Tuple(_)
+        | Type::Reference(_)
         | Type::BareFn(_) => {
             syn_err!(t.span(); "need name")
         }
