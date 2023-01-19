@@ -7,6 +7,8 @@ use syn::{
     spanned::Spanned,
     Expr, Ident, Item, ItemEnum, PathArguments, Result, Token, Type, TypePath,
 };
+#[macro_use]
+mod utils;
 #[derive(Debug, Clone)]
 struct EnumFilled(Type, Ident);
 
@@ -22,8 +24,6 @@ impl Parse for EnumFilled {
         Ok(Self(type_, ident))
     }
 }
-#[macro_use]
-mod utils;
 #[proc_macro_derive(From)]
 pub fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match entry(input) {
