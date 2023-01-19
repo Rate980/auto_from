@@ -108,15 +108,13 @@ fn enum_entry(input: TokenStream) -> Result<TokenStream2> {
     let ast = syn::parse::<UnionEnum>(input)?;
     let name = &ast.ident;
     let fields = &ast.body;
-    let types = fields.iter().map(|x| x.0.clone()).collect::<Vec<Type>>();
-    let names = fields.iter().map(|x| x.1.clone()).collect::<Vec<Ident>>();
+    let types = fields.iter().map(|x| &x.0).collect::<Vec<_>>();
+    let names = fields.iter().map(|x| &x.1).collect::<Vec<_>>();
     let generics = &ast.generics;
     let for_generics = if let Some(generics) = generics {
         let mut generics = generics.clone();
         let emp = Punctuated::<TypeParamBound, Token!(+)>::new;
-        generics
-            .type_params_mut()
-            .for_each(move |x| x.bounds = emp());
+        generics.type_params_mut().for_each(|x| x.bounds = emp());
         Some(generics)
     } else {
         None
