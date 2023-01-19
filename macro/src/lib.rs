@@ -3,7 +3,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{
     parse::Parse, punctuated::Punctuated, spanned::Spanned, Expr, Generics, Ident, Item, ItemEnum,
-    PathArguments, Result, Token, Type, TypeParam, TypeParamBound, TypePath,
+    PathArguments, Result, Token, Type, TypeParamBound, TypePath,
 };
 #[macro_use]
 mod utils;
