@@ -11,7 +11,19 @@ use from_macro::union_enum;
 //         })*
 //     };
 // }
-union_enum! {Data; [String; 3], (u8, u16): B,}
+// union_enum! {Data; [String; 3], (u8, u16): B,}
+union_enum! {Data<'a, T: Copy>; &'a T: A,}
+enum A<'a, T>
+where
+    T: Copy,
+{
+    T(&'a T),
+}
+impl<'a, T: Copy> From<&'a T> for A<'a, T> {
+    fn from(value: &'a T) -> Self {
+        Self::T(value)
+    }
+}
 fn main() {
     // let a: Data = 2.into();
 }
