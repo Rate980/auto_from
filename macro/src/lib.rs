@@ -1,11 +1,9 @@
-use proc_macro::{TokenStream, TokenTree};
+use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{
-    parse::{Parse, Parser},
-    punctuated::Punctuated,
-    spanned::Spanned,
-    Expr, Ident, Item, ItemEnum, PathArguments, Result, Token, Type, TypePath,
+    parse::Parse, punctuated::Punctuated, spanned::Spanned, Expr, Generics, Ident, Item, ItemEnum,
+    PathArguments, Result, Token, Type, TypeParam, TypeParamBound, TypePath,
 };
 #[macro_use]
 mod utils;
