@@ -3,7 +3,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::quote;
 use syn::{
     parse::Parse, punctuated::Punctuated, spanned::Spanned, Expr, Generics, Ident, Item, ItemEnum,
-    PathArguments, Result, Token, Type, TypeParamBound, TypePath,
+    PathArguments, Result, Token, Type, TypePath, WhereClause,
 };
 #[macro_use]
 mod utils;
@@ -34,10 +34,18 @@ impl Parse for UnionEnum {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
         let ident = input.parse::<Ident>()?;
         let generics = if input.peek(Token!(<)) {
-            Some(input.parse::<Generics>()?)
+            let mut tmp = input.parse::<Generics>()?;
+            tmp.where_clause = if input.peek(Token!(where)) {
+                Some(input.parse::<WhereClause>()?)
+            } else {
+                None
+            };
+            Some(tmp)
         } else {
             None
         };
+        // let generics = dbg!(generics);
+        // println!("{}", input);
         input.parse::<Token!(;)>()?;
         let body = Punctuated::<EnumFilled, Token![,]>::parse_terminated(input)?;
         Ok(Self {
@@ -111,20 +119,27 @@ fn enum_entry(input: TokenStream) -> Result<TokenStream2> {
     let types = fields.iter().map(|x| &x.0).collect::<Vec<_>>();
     let names = fields.iter().map(|x| &x.1).collect::<Vec<_>>();
     let generics = &ast.generics;
-    let for_generics = if let Some(generics) = generics {
-        let mut generics = generics.clone();
-        let emp = Punctuated::<TypeParamBound, Token!(+)>::new;
-        generics.type_params_mut().for_each(|x| x.bounds = emp());
-        Some(generics)
+    let (impl_generics, ty_generics, where_clause) = if let Some(generics) = generics {
+        let (a, b, c) = generics.split_for_impl();
+        (Some(a), Some(b), Some(c))
     } else {
-        None
+        (None, None, None)
     };
+    // let for_generics = if let Some(generics) = generics {
+    //     let mut generics = generics.clone();
+    //     let emp = Punctuated::<TypeParamBound, Token!(+)>::new;
+    //     generics.type_params_mut().for_each(|x| x.bounds = emp());
+    //     Some(generics)
+    // } else {
+    //     None
+    // };
+
     let res = quote!(
         enum #name #generics{
             #(#names(#types)),*
         }
         #(
-            impl #generics From<#types> for #name #for_generics{
+            impl #impl_generics From<#types> for #name #ty_generics #where_clause{
                 fn from(value: #types) -> Self{
                     Self::#names(value)
                 }
